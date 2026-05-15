@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Топливо Недвижимости</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .logo {
+      font-size: 48px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+      margin-bottom: 8px;
+      letter-spacing: -1px;
+    }
+    .logo span { display: block; }
+    .logo .top { color: #fff; }
+    .logo .bottom { color: #3b82f6; }
+
+    .subtitle {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 40px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%;
+      max-width: 380px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 15px;
+      color: #94a3b8;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .channels {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .channel {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+
+    .channel::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3b82f6;
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 18px;
+      background: #3b82f6;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.2s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active {
+      background: #2563eb;
+      transform: scale(0.98);
+    }
+
+    .btn.success {
+      background: #16a34a;
+    }
+
+    .note {
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+      margin-top: 16px;
+      line-height: 1.5;
+      max-width: 320px;
+    }
+
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="logo">
+    <span class="top">ТОП</span>
+    <span class="bottom">ЛИВО</span>
+  </div>
+  <div class="subtitle">Недвижимости</div>
+
+  <div class="card">
+    <div class="card-title">Добавьте папку с каналами</div>
+    <div class="card-desc">
+      Всё про рынок недвижимости, лиды и маркетинг — в одном месте.
+    </div>
+    <div class="channels" id="channels-list">
+      <!-- Заполняется динамически -->
+    </div>
+    <button class="btn" id="addBtn" onclick="addFolder()">
+      Добавить папку
+    </button>
+  </div>
+
+  <div class="note">
+    После нажатия Telegram предложит добавить папку с каналами в ваш список чатов
+  </div>
+
+<script>
+  // Инициализация Telegram WebApp
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+
+  // Настройки — сюда подставим реальные данные
+  const CONFIG = {
+    folderLink: 'FOLDER_LINK_PLACEHOLDER',   // t.me/addlist/XXXX
+    trackUrl: 'TRACK_URL_PLACEHOLDER',        // наш backend
+    channels: [
+      'Топливо Недвижимости',
+      'TG-Boost: лиды из Telegram',
+    ]
+  };
+
+  // Рендерим каналы
+  const list = document.getElementById('channels-list');
+  CONFIG.channels.forEach(name => {
+    const div = document.createElement('div');
+    div.className = 'channel';
+    div.textContent = name;
+    list.appendChild(div);
+  });
+
+  // Получаем данные пользователя
+  const user = tg.initDataUnsafe?.user || {};
+  const tgId = user.id || null;
+
+  // Получаем UTM из startapp параметра
+  const startParam = tg.initDataUnsafe?.start_param || '';
+
+  // Трекаем клик и открываем папку
+  async function addFolder() {
+    const btn = document.getElementById('addBtn');
+    btn.textContent = '';
+    btn.innerHTML = '<div class="spinner" style="display:block"></div>';
+    btn.disabled = true;
+
+    // Отправляем событие на наш сервер
+    try {
+      await fetch(CONFIG.trackUrl + '/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'folder_click',
+          tg_id: tgId,
+          username: user.username || null,
+          first_name: user.first_name || null,
+          utm: startParam,
+          ts: Date.now()
+        })
+      });
+    } catch(e) {
+      // Не блокируем пользователя если трекинг упал
+      console.log('track error', e);
+    }
+
+    // Открываем ссылку на папку
+    tg.openTelegramLink(CONFIG.folderLink);
+
+    // Меняем кнопку
+    setTimeout(() => {
+      btn.innerHTML = '✓ Папка добавлена';
+      btn.className = 'btn success';
+      btn.disabled = false;
+    }, 1500);
+  }
+</script>
+
+</body>
+</html>
